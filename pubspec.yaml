@@ -1,5 +1,5 @@
 name: dump_ui_tools
-description: "A new Flutter project."
+description: "Android UI Analyzer Tool - A Flutter desktop application for analyzing Android UI hierarchy"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.5.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -31,8 +31,30 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # UI and State Management
+  provider: ^6.1.1
+  shared_preferences: ^2.2.2
+  
+  # XML parsing and processing
+  xml: ^6.4.2
+  
+  # Syntax highlighting for XML display
+  flutter_highlight: ^0.7.0
+  
+  # File system operations
+  path: ^1.8.3
+  path_provider: ^2.1.1
+  
+  # Tree view component
+  flutter_treeview: ^1.0.7+1
+  
+  # Material Design 3 support
+  material_color_utilities: ^0.11.1
+  
+  # Desktop window management
+  window_manager: ^0.3.7
+  
+  # Icons
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
