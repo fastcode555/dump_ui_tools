@@ -1,5 +1,9 @@
 # Android UI Analyzer Tool
 
+[English](README.md) | [中文](README.zh.md) | [Deutsch](README.de.md) | [한국어](README.ko.md) | [日本語](README.ja.md)
+
+---
+
 A powerful Flutter desktop application for analyzing Android UI hierarchies from XML dump files. This tool helps developers understand UI structures, debug layout issues, and accelerate UI automation test development.
 
 ![App Screenshot](docs/images/app-screenshot.png)
