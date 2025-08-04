@@ -3,7 +3,6 @@
 A powerful Flutter desktop application for analyzing Android UI hierarchies from XML dump files. This tool helps developers understand UI structures, debug layout issues, and accelerate UI automation test development.
 
 ![App Screenshot](docs/images/app-screenshot.png)
-
 ## Features
 
 ### Core Functionality
