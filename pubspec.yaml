@@ -1,5 +1,5 @@
 name: dump_ui_tools
-description: "Android UI Analyzer Tool - A Flutter desktop application for analyzing Android UI hierarchy"
+description: "A powerful Flutter desktop application for analyzing Android UI hierarchies from XML dump files. This tool helps developers understand UI structures, debug layout issues, and accelerate UI automation test development. Features include interactive tree view, advanced search & filtering, property inspection, visual preview, XML viewing with syntax highlighting, and history management."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

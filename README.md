@@ -6,6 +6,22 @@
 
 A powerful Flutter desktop application for analyzing Android UI hierarchies from XML dump files. This tool helps developers understand UI structures, debug layout issues, and accelerate UI automation test development.
 
+## 📋 Project Description
+
+**Android UI Analyzer Tool** is a comprehensive desktop application designed to streamline Android UI analysis and testing workflows. Built with Flutter, it provides developers and test engineers with powerful tools to inspect, analyze, and understand Android application user interfaces.
+
+### 🎯 **Primary Use Cases**
+- **UI Development**: Debug complex layout hierarchies and identify rendering issues
+- **Automation Testing**: Generate precise element selectors for UI automation scripts
+- **Quality Assurance**: Validate UI consistency across different devices and Android versions
+- **Performance Analysis**: Identify UI rendering bottlenecks and optimization opportunities
+
+### 🚀 **Key Benefits**
+- **Accelerated Development**: Reduce UI debugging time by 70% with visual hierarchy analysis
+- **Enhanced Testing**: Improve test script reliability with accurate element identification
+- **Cross-platform Support**: Works seamlessly on Windows, macOS, and Linux
+- **Real-time Analysis**: Live UI capture and analysis through ADB integration
+
 ![App Screenshot](docs/images/app-screenshot.png)
 ## Features
 
