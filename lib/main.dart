@@ -3,8 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'ui/themes/app_theme.dart';
 import 'ui/widgets/main_window.dart';
-import 'ui/widgets/performance_monitor.dart';
-import 'ui/widgets/status_bar.dart';
 import 'controllers/ui_analyzer_state.dart';
 import 'integration/app_integration.dart';
 import 'services/user_preferences.dart';
@@ -77,13 +75,10 @@ class UIAnalyzerApp extends StatelessWidget {
         return MaterialApp(
           title: 'Android UI Analyzer',
           debugShowCheckedModeBanner: false,
-          navigatorKey: NavigationService.navigatorKey,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: state.themeMode,
-          home: DebugPerformanceOverlay(
-            child: const MainWindow(),
-          ),
+          home: const MainWindow(),
         );
       },
     );

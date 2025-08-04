@@ -573,25 +573,19 @@ class UIAnalyzerState extends ChangeNotifier {
     setLoading(true, 'Refreshing devices...');
     
     try {
-      // TODO: Implement actual ADB device discovery
-      // For now, simulate with mock data
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Use actual ADB service to get connected devices
+      final adbService = ADBService();
       
-      // Mock devices for testing
-      final mockDevices = [
-        AndroidDevice(
-          id: 'emulator-5554',
-          name: 'Android Emulator',
-          status: DeviceStatus.device,
-        ),
-        AndroidDevice(
-          id: 'device-123',
-          name: 'Samsung Galaxy',
-          status: DeviceStatus.device,
-        ),
-      ];
+      // Check if ADB is available first
+      final isAdbAvailable = await adbService.isADBAvailable();
+      if (!isAdbAvailable) {
+        throw Exception('ADB is not available. Please ensure Android SDK platform-tools are installed and in PATH.');
+      }
       
-      setAvailableDevices(mockDevices);
+      // Get real connected devices
+      final devices = await adbService.getConnectedDevices();
+      
+      setAvailableDevices(devices);
       
       // Try to auto-select last used device
       _trySelectLastDevice();

@@ -28,7 +28,7 @@ class StatusBar extends StatelessWidget {
                 context,
                 icon: _getConnectionIcon(state),
                 text: _getConnectionText(state),
-                color: _getConnectionColor(state),
+                color: _getConnectionColor(context, state),
               ),
               
               _buildDivider(context),
@@ -163,8 +163,8 @@ class StatusBar extends StatelessWidget {
     }
   }
 
-  Color _getConnectionColor(UIAnalyzerState state) {
-    final theme = Theme.of(state.context ?? NavigationService.navigatorKey.currentContext!);
+  Color _getConnectionColor(BuildContext context, UIAnalyzerState state) {
+    final theme = Theme.of(context);
     
     if (state.isLoading) {
       return theme.colorScheme.primary;

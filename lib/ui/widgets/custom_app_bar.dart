@@ -139,6 +139,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             ...state.availableDevices.map((device) => DropdownMenuItem<AndroidDevice?>(
               value: device,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     device.isConnected ? Icons.smartphone : Icons.smartphone_outlined,
@@ -148,7 +149,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                         : Theme.of(context).colorScheme.outline,
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
+                  Flexible(
                     child: Text(
                       device.name.isNotEmpty ? device.name : device.id,
                       overflow: TextOverflow.ellipsis,

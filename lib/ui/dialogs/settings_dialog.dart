@@ -22,10 +22,12 @@ class SettingsDialog extends StatelessWidget {
           ),
           content: SizedBox(
             width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            height: 500, // Set a fixed height to enable scrolling
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 // Theme Settings Section
                 Text(
                   'Appearance',
@@ -196,6 +198,7 @@ class SettingsDialog extends StatelessWidget {
               ],
             ),
           ),
+        ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),

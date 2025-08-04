@@ -35,16 +35,104 @@ class ADBService {
   static const String _adbCommand = 'adb';
   static const Duration _defaultTimeout = Duration(seconds: 30);
   
+  // Common ADB paths to try
+  static const List<String> _adbPaths = [
+    'adb', // System PATH
+    '/Users/\$USER/Library/Android/sdk/platform-tools/adb', // macOS default
+    '/usr/local/bin/adb', // Homebrew
+    '/opt/homebrew/bin/adb', // Apple Silicon Homebrew
+  ];
+  
   /// Singleton instance
   static final ADBService _instance = ADBService._internal();
   factory ADBService() => _instance;
   ADBService._internal();
   
+  /// Find available ADB executable path
+  Future<String?> _findAdbPath() async {
+    // Get the real user home directory (not sandboxed)
+    String? realHomeDir;
+    try {
+      final result = await Process.run('sh', ['-c', 'echo \$HOME']);
+      if (result.exitCode == 0) {
+        realHomeDir = result.stdout.toString().trim();
+      }
+    } catch (e) {
+      print('Error getting real home directory: $e');
+    }
+    
+    // Fallback to environment variable
+    realHomeDir ??= Platform.environment['HOME'];
+    
+    // Get current user name for path construction
+    String? userName;
+    try {
+      final result = await Process.run('whoami', []);
+      if (result.exitCode == 0) {
+        userName = result.stdout.toString().trim();
+      }
+    } catch (e) {
+      print('Error getting username: $e');
+    }
+    
+    // Try common installation paths with real paths
+    final commonPaths = <String>[
+      // Try with full path using username
+      if (userName != null) '/Users/$userName/Library/Android/sdk/platform-tools/adb',
+      // Try with home directory
+      if (realHomeDir != null) '$realHomeDir/Library/Android/sdk/platform-tools/adb',
+      // System paths
+      '/usr/local/bin/adb',
+      '/opt/homebrew/bin/adb',
+      // Try adb in PATH (might work if permissions allow)
+      'adb',
+    ];
+    
+    print('Real home dir: $realHomeDir, Username: $userName');
+    print('Trying ADB paths...');
+    
+    for (final path in commonPaths) {
+      try {
+        print('Trying path: $path');
+        final result = await Process.run(path, ['version'], runInShell: true);
+        print('Path $path result: exitCode=${result.exitCode}');
+        if (result.exitCode == 0) {
+          print('Found working ADB at: $path');
+          return path;
+        }
+      } catch (e) {
+        print('Error trying path $path: $e');
+      }
+    }
+    
+    // Try using shell to find adb
+    try {
+      print('Trying to find adb using shell...');
+      final result = await Process.run('sh', ['-c', 'which adb'], runInShell: true);
+      if (result.exitCode == 0) {
+        final path = result.stdout.toString().trim();
+        if (path.isNotEmpty) {
+          print('Found ADB via shell: $path');
+          // Test if it works
+          final testResult = await Process.run(path, ['version'], runInShell: true);
+          if (testResult.exitCode == 0) {
+            return path;
+          }
+        }
+      }
+    } catch (e) {
+      print('Error finding adb via shell: $e');
+    }
+    
+    print('No working ADB path found');
+    return null;
+  }
+
   /// Check if ADB is available on the system
   Future<bool> isADBAvailable() async {
     try {
-      final result = await _runADBCommand(['version'], timeout: Duration(seconds: 5));
-      return result.exitCode == 0;
+      final adbPath = await _findAdbPath();
+      return adbPath != null;
     } catch (e) {
       return false;
     }
@@ -533,7 +621,13 @@ class ADBService {
     Duration timeout = _defaultTimeout,
   }) async {
     try {
-      final process = await Process.start(_adbCommand, arguments);
+      // Find ADB path first
+      final adbPath = await _findAdbPath();
+      if (adbPath == null) {
+        throw ADBException('ADB not found in system PATH or common locations');
+      }
+      
+      final process = await Process.start(adbPath, arguments, runInShell: true);
       
       // Set up timeout
       Timer? timeoutTimer;
