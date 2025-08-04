@@ -22,9 +22,10 @@ class MainWindow extends StatefulWidget {
 
 class _MainWindowState extends State<MainWindow> with WindowListener {
   // Panel size ratios
-  double _leftPanelRatio = 0.4; // 40% for tree view
-  double _rightTopPanelRatio = 0.5; // 50% of right panel for properties
+  double _leftPanelRatio = 0.3; // 30% for UI hierarchy
+  double _middlePanelRatio = 0.35; // 35% for properties
   double _xmlPanelHeight = 200.0; // Fixed height for XML panel
+  // Right panel (preview) takes remaining space
 
   // Minimum panel sizes
   static const double _minPanelWidth = 200.0;
@@ -62,11 +63,13 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
       
       final screenWidth = mediaQuery.size.width;
       final leftWidth = UserPreferences.getLeftPanelWidth();
+      final rightWidth = UserPreferences.getRightPanelWidth();
       final xmlHeight = UserPreferences.getXmlPanelHeight();
       
       if (mounted) {
         setState(() {
           _leftPanelRatio = leftWidth / screenWidth;
+          _middlePanelRatio = rightWidth / screenWidth; // Reuse rightWidth for middle panel
           _xmlPanelHeight = xmlHeight;
         });
       }
@@ -91,10 +94,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
           
           final screenWidth = mediaQuery.size.width;
           final leftWidth = screenWidth * _leftPanelRatio;
+          final middleWidth = screenWidth * _middlePanelRatio;
           
           UserPreferences.savePanelSizes(
             leftPanelWidth: leftWidth,
-            rightPanelWidth: screenWidth - leftWidth,
+            rightPanelWidth: middleWidth, // Save middle panel width as rightPanelWidth
             xmlPanelHeight: _xmlPanelHeight,
           );
         } catch (e) {
@@ -150,42 +154,29 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                     // Main content area with resizable panels
                     Expanded(
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // Left panel - Tree view
-                          AnimatedContainer(
-                            duration: state.animationDuration,
-                            curve: Curves.easeInOut,
+                          // Left panel - UI Hierarchy (Tree view)
+                          SizedBox(
                             width: MediaQuery.of(context).size.width * _leftPanelRatio,
                             child: const TreeViewPanel(),
                           ),
                           
-                          // Vertical resizer
-                          _buildVerticalResizer(),
+                          // First vertical resizer (between hierarchy and properties)
+                          _buildVerticalResizer(isFirstResizer: true),
                           
-                          // Right panel - Properties and Preview
+                          // Middle panel - Properties
+                          SizedBox(
+                            width: MediaQuery.of(context).size.width * _middlePanelRatio,
+                            child: const PropertyPanel(),
+                          ),
+                          
+                          // Second vertical resizer (between properties and preview)
+                          _buildVerticalResizer(isFirstResizer: false),
+                          
+                          // Right panel - Screen Preview
                           Expanded(
-                            child: Column(
-                              children: [
-                                // Property panel (top right)
-                                AnimatedContainer(
-                                  duration: state.animationDuration,
-                                  curve: Curves.easeInOut,
-                                  height: (MediaQuery.of(context).size.height - 
-                                          AppBar().preferredSize.height - 
-                                          (state.isXmlViewerVisible ? _xmlPanelHeight : 0)) * 
-                                         _rightTopPanelRatio,
-                                  child: const PropertyPanel(),
-                                ),
-                                
-                                // Horizontal resizer
-                                _buildHorizontalResizer(state),
-                                
-                                // Preview panel (bottom right)
-                                Expanded(
-                                  child: const PreviewPanel(),
-                                ),
-                              ],
-                            ),
+                            child: const PreviewPanel(),
                           ),
                         ],
                       ),
@@ -223,11 +214,11 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                             )
                           : const SizedBox.shrink(key: ValueKey('empty')),
                     ),
+                    
+                    // Status bar at the bottom
+                    const StatusBar(),
                   ],
                 ),
-                
-                // Status bar
-                const StatusBar(),
                 
                 // Specialized loading indicator for UI capture
                 if (state.isLoading && state.loadingMessage.contains('UI'))
@@ -267,7 +258,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     );
   }
 
-  Widget _buildVerticalResizer() {
+  Widget _buildVerticalResizer({required bool isFirstResizer}) {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
@@ -285,13 +276,27 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
         onPanUpdate: (details) {
           setState(() {
             final screenWidth = MediaQuery.of(context).size.width;
-            final newRatio = _leftPanelRatio + (details.delta.dx / screenWidth);
+            final deltaRatio = details.delta.dx / screenWidth;
             
-            // Ensure minimum panel sizes
-            final minLeftRatio = _minPanelWidth / screenWidth;
-            final maxLeftRatio = 1.0 - (_minPanelWidth / screenWidth);
-            
-            _leftPanelRatio = newRatio.clamp(minLeftRatio, maxLeftRatio);
+            if (isFirstResizer) {
+              // First resizer: adjust left panel ratio
+              final newLeftRatio = _leftPanelRatio + deltaRatio;
+              
+              // Ensure minimum panel sizes
+              final minLeftRatio = _minPanelWidth / screenWidth;
+              final maxLeftRatio = 1.0 - (2 * _minPanelWidth / screenWidth) - _middlePanelRatio;
+              
+              _leftPanelRatio = newLeftRatio.clamp(minLeftRatio, maxLeftRatio);
+            } else {
+              // Second resizer: adjust middle panel ratio
+              final newMiddleRatio = _middlePanelRatio + deltaRatio;
+              
+              // Ensure minimum panel sizes
+              final minMiddleRatio = _minPanelWidth / screenWidth;
+              final maxMiddleRatio = 1.0 - _leftPanelRatio - (_minPanelWidth / screenWidth);
+              
+              _middlePanelRatio = newMiddleRatio.clamp(minMiddleRatio, maxMiddleRatio);
+            }
           });
         },
         child: AnimatedContainer(
@@ -318,58 +323,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
     );
   }
 
-  Widget _buildHorizontalResizer(UIAnalyzerState state) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeRow,
-      child: GestureDetector(
-        onPanStart: (details) {
-          setState(() {
-            _isResizing = true;
-          });
-        },
-        onPanEnd: (details) {
-          setState(() {
-            _isResizing = false;
-          });
-          _savePanelSizes();
-        },
-        onPanUpdate: (details) {
-          setState(() {
-            final availableHeight = MediaQuery.of(context).size.height - 
-                                   AppBar().preferredSize.height - 
-                                   (state.isXmlViewerVisible ? _xmlPanelHeight : 0);
-            final newRatio = _rightTopPanelRatio + (details.delta.dy / availableHeight);
-            
-            // Ensure minimum panel sizes
-            final minTopRatio = _minPanelHeight / availableHeight;
-            final maxTopRatio = 1.0 - (_minPanelHeight / availableHeight);
-            
-            _rightTopPanelRatio = newRatio.clamp(minTopRatio, maxTopRatio);
-          });
-        },
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: _isResizing ? 0 : 200),
-          height: _isResizing ? 6 : 4,
-          color: _isResizing 
-              ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-              : Theme.of(context).dividerColor,
-          child: Center(
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: _isResizing ? 0 : 200),
-              width: _isResizing ? 60 : 40,
-              height: _isResizing ? 3 : 2,
-              decoration: BoxDecoration(
-                color: _isResizing 
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outline,
-                borderRadius: BorderRadius.circular(1.5),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildXmlPanelResizer() {
     return MouseRegion(

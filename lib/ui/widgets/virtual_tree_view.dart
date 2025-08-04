@@ -86,7 +86,8 @@ class _VirtualTreeViewState extends State<VirtualTreeView> {
   void _updateVisibleRange() {
     if (_viewportHeight == 0 || _flattenedItems.isEmpty) return;
 
-    final scrollOffset = _scrollController.offset;
+    // Check if scroll controller is attached before accessing offset
+    final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
     final startIndex = math.max(0, (scrollOffset / widget.itemHeight).floor() - 5);
     final endIndex = math.min(
       _flattenedItems.length - 1,
@@ -94,10 +95,12 @@ class _VirtualTreeViewState extends State<VirtualTreeView> {
     );
 
     if (startIndex != _visibleStartIndex || endIndex != _visibleEndIndex) {
-      setState(() {
-        _visibleStartIndex = startIndex;
-        _visibleEndIndex = endIndex;
-      });
+      if (mounted) {
+        setState(() {
+          _visibleStartIndex = startIndex;
+          _visibleEndIndex = endIndex;
+        });
+      }
     }
   }
 
@@ -115,18 +118,25 @@ class _VirtualTreeViewState extends State<VirtualTreeView> {
       }
     }
     
-    _updateVisibleRange();
+    // Don't call _updateVisibleRange during build - schedule it for after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateVisibleRange();
+      }
+    });
   }
 
   void _addElementToFlatList(UIElement element, int depth) {
+    final isExpanded = widget.expandedElements.contains(element.id);
+    
     _flattenedItems.add(_TreeViewItem(
       element: element,
       depth: depth,
-      isExpanded: widget.expandedElements.contains(element.id),
+      isExpanded: isExpanded,
     ));
 
     // Add children if expanded
-    if (widget.expandedElements.contains(element.id)) {
+    if (isExpanded) {
       for (final child in element.children) {
         _addElementToFlatList(child, depth + 1);
       }
@@ -138,9 +148,9 @@ class _VirtualTreeViewState extends State<VirtualTreeView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _viewportHeight = constraints.maxHeight;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _updateVisibleRange();
-        });
+        
+        // Rebuild flattened items when expanded elements change
+        _rebuildFlattenedItems();
 
         return _buildVirtualScrollView();
       },

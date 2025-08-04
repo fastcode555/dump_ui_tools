@@ -105,6 +105,15 @@ class _TreeViewPanelState extends State<TreeViewPanel> {
     return SearchBarWidget(
       onSearchChanged: (query) {
         state.setSearchQuery(query);
+        
+        // Auto-expand search results after a short delay
+        if (query.isNotEmpty) {
+          Timer(const Duration(milliseconds: 500), () {
+            if (mounted && state.hasSearchResults) {
+              _expandSearchResults(state);
+            }
+          });
+        }
       },
     );
   }
@@ -273,6 +282,8 @@ class _TreeViewPanelState extends State<TreeViewPanel> {
       for (final result in searchResults) {
         final path = result.getPathFromRoot();
         if (path.contains(element) && element != result) {
+          // Auto-expand parent paths for search results
+          _expandedElements.add(element.id);
           return true;
         }
       }
@@ -297,6 +308,35 @@ class _TreeViewPanelState extends State<TreeViewPanel> {
         _expandedElements.add(element.id);
       }
     });
+    
+    // Force VirtualTreeView to rebuild by clearing its cache
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+  
+  /// Auto-expand search results and scroll to first result
+  void _expandSearchResults(UIAnalyzerState state) {
+    if (!state.hasSearchResults) return;
+    
+    setState(() {
+      // Expand all parent paths for search results
+      for (final result in state.searchResults) {
+        final path = result.getPathFromRoot();
+        for (final element in path) {
+          if (element != result) {
+            _expandedElements.add(element.id);
+          }
+        }
+      }
+    });
+    
+    // Select first search result
+    if (state.searchResults.isNotEmpty) {
+      state.selectElement(state.searchResults.first);
+    }
   }
 }
 

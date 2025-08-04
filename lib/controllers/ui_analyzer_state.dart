@@ -629,72 +629,14 @@ class UIAnalyzerState extends ChangeNotifier {
       updateProgress(0.98, '保存到历史记录...');
       final savedPath = await fileManager.saveUIdump(xmlContent);
       
-      // Update state
+      // Update state with real data
       setUIHierarchy(rootElement, xmlContent: xmlContent);
       
       // Add to history
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final historyFile = 'ui_dump_$timestamp.xml';
-      addHistoryFile(historyFile);
-      setCurrentHistoryFile(historyFile);
+      addHistoryFile(savedPath);
+      setCurrentHistoryFile(savedPath);
       
       updateProgress(1.0, 'UI结构获取完成！');
-      
-      // Create mock data for testing
-      final mockRoot = UIElement(
-        id: 'root',
-        depth: 0,
-        text: '',
-        contentDesc: '',
-        className: 'android.widget.FrameLayout',
-        packageName: 'com.example.app',
-        resourceId: '',
-        clickable: false,
-        enabled: true,
-        bounds: const Rect.fromLTWH(0, 0, 1080, 1920),
-        index: 0,
-      );
-
-      final mockChild1 = UIElement(
-        id: 'child1',
-        depth: 1,
-        text: 'Hello World',
-        contentDesc: 'Greeting text',
-        className: 'android.widget.TextView',
-        packageName: 'com.example.app',
-        resourceId: 'com.example.app:id/greeting',
-        clickable: false,
-        enabled: true,
-        bounds: const Rect.fromLTWH(100, 200, 880, 100),
-        index: 0,
-      );
-
-      final mockChild2 = UIElement(
-        id: 'child2',
-        depth: 1,
-        text: 'Click Me',
-        contentDesc: 'Action button',
-        className: 'android.widget.Button',
-        packageName: 'com.example.app',
-        resourceId: 'com.example.app:id/action_button',
-        clickable: true,
-        enabled: true,
-        bounds: const Rect.fromLTWH(400, 400, 280, 80),
-        index: 1,
-      );
-
-      mockRoot.addChild(mockChild1);
-      mockRoot.addChild(mockChild2);
-      
-      const mockXml = '''<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
-<hierarchy rotation="0">
-  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.example.app" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[0,0][1080,1920]">
-    <node index="0" text="Hello World" resource-id="com.example.app:id/greeting" class="android.widget.TextView" package="com.example.app" content-desc="Greeting text" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[100,200][980,300]" />
-    <node index="1" text="Click Me" resource-id="com.example.app:id/action_button" class="android.widget.Button" package="com.example.app" content-desc="Action button" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" bounds="[400,400][680,480]" />
-  </node>
-</hierarchy>''';
-      
-      setUIHierarchy(mockRoot, xmlContent: mockXml);
       
     } catch (e) {
       setErrorFromException(e);
