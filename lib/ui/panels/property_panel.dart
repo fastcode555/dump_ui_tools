@@ -25,6 +25,7 @@ class PropertyPanel extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minHeight: 56), // Ensure consistent height
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: Border(

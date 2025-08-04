@@ -58,7 +58,8 @@ class _PreviewPanelState extends State<PreviewPanel> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 56, // Fixed height for consistency across all panels
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: Border(
@@ -87,7 +88,11 @@ class _PreviewPanelState extends State<PreviewPanel> {
           // Zoom controls
           Consumer<UIAnalyzerState>(
             builder: (context, state, child) {
-              if (!state.hasUIHierarchy) return const SizedBox.shrink();
+              if (!state.hasUIHierarchy) {
+                return const SizedBox(
+                  height: 40, // Maintain consistent height even when empty
+                );
+              }
               
               return Row(
                 mainAxisSize: MainAxisSize.min,
@@ -97,18 +102,30 @@ class _PreviewPanelState extends State<PreviewPanel> {
                     icon: const Icon(Icons.zoom_out),
                     tooltip: 'Zoom Out',
                     iconSize: 18,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
                   ),
                   IconButton(
                     onPressed: _resetZoom,
                     icon: const Icon(Icons.center_focus_strong),
                     tooltip: 'Reset Zoom',
                     iconSize: 18,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
                   ),
                   IconButton(
                     onPressed: _zoomIn,
                     icon: const Icon(Icons.zoom_in),
                     tooltip: 'Zoom In',
                     iconSize: 18,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
                   ),
                 ],
               );
@@ -149,78 +166,97 @@ class _PreviewPanelState extends State<PreviewPanel> {
   }
 
   Widget _buildPreviewContent(BuildContext context, UIAnalyzerState state) {
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerLowest,
-      child: InteractiveViewer(
-        transformationController: _transformationController,
-        minScale: 0.1,
-        maxScale: 5.0,
-        constrained: false,
-        child: Center(
-          child: _buildDeviceCanvas(context, state),
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          color: Theme.of(context).colorScheme.surfaceContainerLowest,
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 0.1,
+            maxScale: 5.0,
+            constrained: true,
+            child: Center(
+              child: _buildDeviceCanvas(context, state, constraints),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildDeviceCanvas(BuildContext context, UIAnalyzerState state) {
+  Widget _buildDeviceCanvas(BuildContext context, UIAnalyzerState state, BoxConstraints constraints) {
     final rootElement = state.rootElement;
     if (rootElement == null) return const SizedBox.shrink();
 
-    // Calculate device dimensions from root element bounds
+    // Calculate device dimensions from root element bounds or find the maximum bounds
     final deviceBounds = rootElement.bounds;
-    final deviceWidth = deviceBounds.width > 0 ? deviceBounds.width : _defaultDeviceWidth;
-    final deviceHeight = deviceBounds.height > 0 ? deviceBounds.height : _defaultDeviceHeight;
-
-    // Calculate scale to fit the available space with some padding
-    final availableSize = MediaQuery.of(context).size;
-    final maxWidth = availableSize.width * 0.8; // 80% of available width
-    final maxHeight = availableSize.height * 0.8; // 80% of available height
     
-    final scaleX = maxWidth / deviceWidth;
-    final scaleY = maxHeight / deviceHeight;
-    final scale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.1, 2.0);
+    // Find the actual maximum bounds by checking all elements
+    double maxRight = deviceBounds.right;
+    double maxBottom = deviceBounds.bottom;
+    double minLeft = deviceBounds.left;
+    double minTop = deviceBounds.top;
+    
+    for (final element in state.flatElements) {
+      maxRight = maxRight > element.bounds.right ? maxRight : element.bounds.right;
+      maxBottom = maxBottom > element.bounds.bottom ? maxBottom : element.bounds.bottom;
+      minLeft = minLeft < element.bounds.left ? minLeft : element.bounds.left;
+      minTop = minTop < element.bounds.top ? minTop : element.bounds.top;
+    }
+    
+    // Use the actual content bounds
+    final actualDeviceBounds = Rect.fromLTRB(minLeft, minTop, maxRight, maxBottom);
+    final deviceWidth = actualDeviceBounds.width > 0 ? actualDeviceBounds.width : _defaultDeviceWidth;
+    final deviceHeight = actualDeviceBounds.height > 0 ? actualDeviceBounds.height : _defaultDeviceHeight;
+
+    // Calculate scale to fit the available space (fill the panel)
+    final availableWidth = constraints.maxWidth - 40; // Leave some margin
+    final availableHeight = constraints.maxHeight - 40; // Leave some margin
+    
+    final scaleX = availableWidth / deviceWidth;
+    final scaleY = availableHeight / deviceHeight;
+    final scale = (scaleX < scaleY ? scaleX : scaleY).clamp(0.1, 3.0); // Allow larger scale
 
     final scaledWidth = deviceWidth * scale;
     final scaledHeight = deviceHeight * scale;
 
+    // Add extra padding to ensure all content fits
+    final containerWidth = scaledWidth + 20; // Add 20px padding
+    final containerHeight = scaledHeight + 20; // Add 20px padding
+    
     return Container(
-      width: scaledWidth,
-      height: scaledHeight,
+      width: containerWidth,
+      height: containerHeight,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Colors.white, // Set device canvas background to white
         border: Border.all(
           color: Theme.of(context).colorScheme.outline,
           width: 2,
         ),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        // Remove boxShadow completely
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: CustomPaint(
-          size: Size(scaledWidth, scaledHeight),
-          painter: UIElementsPainter(
+        child: Padding(
+          padding: const EdgeInsets.all(10.0), // Center the content with padding
+          child: CustomPaint(
+            size: Size(scaledWidth, scaledHeight),
+            painter: UIElementsPainter(
             elements: state.flatElements,
             selectedElement: state.selectedElement,
             hoveredElement: _hoveredElement,
-            deviceBounds: deviceBounds,
+            deviceBounds: actualDeviceBounds,
             scale: scale,
             colorScheme: Theme.of(context).colorScheme,
           ),
           child: Stack(
             children: [
               MouseRegion(
-                onHover: (event) => _handleMouseHover(event, state, scale, deviceBounds),
+                onHover: (event) => _handleMouseHover(event, state, scale, actualDeviceBounds),
                 onExit: (_) => _handleMouseExit(),
                 child: GestureDetector(
-                  onTapDown: (details) => _handleTapDown(details, state, scale, deviceBounds),
+                  onTapDown: (details) => _handleTapDown(details, state, scale, actualDeviceBounds),
                   child: Container(
                     width: scaledWidth,
                     height: scaledHeight,
@@ -231,9 +267,10 @@ class _PreviewPanelState extends State<PreviewPanel> {
               
               // Element info tooltip
               if (_hoveredElement != null)
-                _buildElementTooltip(context, _hoveredElement!, scale, deviceBounds),
+                _buildElementTooltip(context, _hoveredElement!, scale, actualDeviceBounds),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -441,23 +478,25 @@ class UIElementsPainter extends CustomPainter {
     // Choose color based on element type
     Color elementColor = _getElementColor(element);
     
-    // Draw element background with transparency
-    final paint = Paint()
-      ..color = elementColor.withOpacity(0.1)
-      ..style = PaintingStyle.fill;
+    // Fill background for images, only border for other elements
+    if (element.className.contains('ImageView')) {
+      // Fill background for images
+      final fillPaint = Paint()
+        ..color = elementColor.withOpacity(0.3)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(bounds, fillPaint);
+    }
     
-    canvas.drawRect(bounds, paint);
-    
-    // Draw element border
+    // Draw border for all elements
     final borderPaint = Paint()
-      ..color = elementColor.withOpacity(0.3)
+      ..color = elementColor.withOpacity(0.7)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5;
+      ..strokeWidth = 1.0;
     
     canvas.drawRect(bounds, borderPaint);
     
-    // Draw text if element has text and is large enough
-    if (element.text.isNotEmpty && bounds.width > 20 && bounds.height > 15) {
+    // Draw text if element has text
+    if (element.text.isNotEmpty) {
       _drawElementText(canvas, element, bounds);
     }
   }
@@ -520,29 +559,34 @@ class UIElementsPainter extends CustomPainter {
   }
 
   void _drawElementText(Canvas canvas, UIElement element, Rect bounds) {
+    // Calculate font size based on scale and bounds
+    final baseFontSize = 10.0;
+    final scaledFontSize = baseFontSize * scale;
+    final fontSize = scaledFontSize.clamp(6.0, 20.0);
+    
     final textPainter = TextPainter(
       text: TextSpan(
         text: element.text,
         style: TextStyle(
           color: colorScheme.onSurface,
-          fontSize: (12 * scale).clamp(8.0, 16.0),
-          fontWeight: FontWeight.w500,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w400,
         ),
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     );
     
-    textPainter.layout(maxWidth: bounds.width - 4);
+    // Layout text with available width
+    textPainter.layout(maxWidth: bounds.width.clamp(10.0, double.infinity));
     
-    if (textPainter.size.width <= bounds.width - 4 && textPainter.size.height <= bounds.height - 4) {
-      final textOffset = Offset(
-        bounds.left + (bounds.width - textPainter.size.width) / 2,
-        bounds.top + (bounds.height - textPainter.size.height) / 2,
-      );
-      
-      textPainter.paint(canvas, textOffset);
-    }
+    // Always draw text, regardless of size constraints
+    final textOffset = Offset(
+      bounds.left + (bounds.width - textPainter.size.width) / 2,
+      bounds.top + (bounds.height - textPainter.size.height) / 2,
+    );
+    
+    textPainter.paint(canvas, textOffset);
   }
 
   Color _getElementColor(UIElement element) {

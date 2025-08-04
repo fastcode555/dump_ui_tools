@@ -114,9 +114,17 @@ class _HistoryPanelState extends State<HistoryPanel> {
   Widget build(BuildContext context) {
     if (widget.isDialog) {
       return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Container(
           width: 600,
           height: 500,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).colorScheme.surface,
+          ),
+          clipBehavior: Clip.antiAlias,
           child: _buildContent(),
         ),
       );

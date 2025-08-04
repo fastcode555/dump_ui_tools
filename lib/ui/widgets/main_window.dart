@@ -22,10 +22,10 @@ class MainWindow extends StatefulWidget {
 
 class _MainWindowState extends State<MainWindow> with WindowListener {
   // Panel size ratios
-  double _leftPanelRatio = 0.3; // 30% for UI hierarchy
-  double _middlePanelRatio = 0.35; // 35% for properties
+  double _leftPanelRatio = 0.25; // 25% for UI hierarchy
+  double _middlePanelRatio = 0.25; // 25% for properties
   double _xmlPanelHeight = 200.0; // Fixed height for XML panel
-  // Right panel (preview) takes remaining space
+  // Right panel (preview) takes remaining space (about 50% minus resizers)
 
   // Minimum panel sizes
   static const double _minPanelWidth = 200.0;
@@ -147,6 +147,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
           appBar: const CustomAppBar(),
           body: LoadingOverlay(
             isLoading: state.isLoading,
+            message: state.loadingMessage,
             child: Stack(
               children: [
                 Column(
@@ -158,7 +159,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                         children: [
                           // Left panel - UI Hierarchy (Tree view)
                           SizedBox(
-                            width: MediaQuery.of(context).size.width * _leftPanelRatio,
+                            width: (MediaQuery.of(context).size.width * _leftPanelRatio).clamp(200.0, double.infinity),
                             child: const TreeViewPanel(),
                           ),
                           
@@ -167,7 +168,7 @@ class _MainWindowState extends State<MainWindow> with WindowListener {
                           
                           // Middle panel - Properties
                           SizedBox(
-                            width: MediaQuery.of(context).size.width * _middlePanelRatio,
+                            width: (MediaQuery.of(context).size.width * _middlePanelRatio).clamp(200.0, double.infinity),
                             child: const PropertyPanel(),
                           ),
                           
