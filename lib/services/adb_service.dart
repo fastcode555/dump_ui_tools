@@ -48,8 +48,16 @@ class ADBService {
   factory ADBService() => _instance;
   ADBService._internal();
   
+  // Cache the ADB path to avoid repeated lookups
+  static String? _cachedAdbPath;
+  
   /// Find available ADB executable path
   Future<String?> _findAdbPath() async {
+    // Return cached path if available
+    if (_cachedAdbPath != null) {
+      return _cachedAdbPath;
+    }
+    
     // Get the real user home directory (not sandboxed)
     String? realHomeDir;
     try {
@@ -58,11 +66,9 @@ class ADBService {
         realHomeDir = result.stdout.toString().trim();
       }
     } catch (e) {
-      print('Error getting real home directory: $e');
+      // Fallback to environment variable
+      realHomeDir = Platform.environment['HOME'];
     }
-    
-    // Fallback to environment variable
-    realHomeDir ??= Platform.environment['HOME'];
     
     // Get current user name for path construction
     String? userName;
@@ -72,7 +78,7 @@ class ADBService {
         userName = result.stdout.toString().trim();
       }
     } catch (e) {
-      print('Error getting username: $e');
+      // Continue without username
     }
     
     // Try common installation paths with real paths
@@ -88,43 +94,36 @@ class ADBService {
       'adb',
     ];
     
-    print('Real home dir: $realHomeDir, Username: $userName');
-    print('Trying ADB paths...');
-    
     for (final path in commonPaths) {
       try {
-        print('Trying path: $path');
         final result = await Process.run(path, ['version'], runInShell: true);
-        print('Path $path result: exitCode=${result.exitCode}');
         if (result.exitCode == 0) {
-          print('Found working ADB at: $path');
+          _cachedAdbPath = path; // Cache the working path
           return path;
         }
       } catch (e) {
-        print('Error trying path $path: $e');
+        // Continue to next path
       }
     }
     
     // Try using shell to find adb
     try {
-      print('Trying to find adb using shell...');
       final result = await Process.run('sh', ['-c', 'which adb'], runInShell: true);
       if (result.exitCode == 0) {
         final path = result.stdout.toString().trim();
         if (path.isNotEmpty) {
-          print('Found ADB via shell: $path');
           // Test if it works
           final testResult = await Process.run(path, ['version'], runInShell: true);
           if (testResult.exitCode == 0) {
+            _cachedAdbPath = path; // Cache the working path
             return path;
           }
         }
       }
     } catch (e) {
-      print('Error finding adb via shell: $e');
+      // Continue
     }
     
-    print('No working ADB path found');
     return null;
   }
 
