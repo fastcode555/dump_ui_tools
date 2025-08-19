@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../controllers/ui_analyzer_state.dart';
 import '../services/adb_service.dart';
 import '../services/xml_parser.dart';

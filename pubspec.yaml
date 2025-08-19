@@ -32,18 +32,18 @@ dependencies:
     sdk: flutter
 
   # UI and State Management
-  provider: ^6.1.1
-  shared_preferences: ^2.2.2
+  provider: ^6.1.5
+  shared_preferences: ^2.5.3
   
   # XML parsing and processing
-  xml: ^6.4.2
+  xml: ^6.5.0
   
   # Syntax highlighting for XML display
   flutter_highlight: ^0.7.0
   
   # File system operations
-  path: ^1.8.3
-  path_provider: ^2.1.1
+  path: ^1.9.1
+  path_provider: ^6.1.5
   
   # Tree view component
   flutter_treeview: ^1.0.7+1
@@ -52,7 +52,7 @@ dependencies:
   material_color_utilities: ^0.11.1
   
   # Desktop window management
-  window_manager: ^0.3.7
+  window_manager: ^0.3.9
   
   # Icons
   cupertino_icons: ^1.0.8
@@ -117,21 +117,21 @@ flutter:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
-  image_path: "ic_launcher.png"
+  image_path: ^1.9.1
   min_sdk_android: 21 # android min sdk min:16, default 21
   remove_alpha_ios: true # 移除iOS图标的alpha通道以符合App Store要求
   web:
     generate: true
-    image_path: "ic_launcher.png"
+    image_path: ^1.9.1
     background_color: "#4CAF50"
     theme_color: "#2196F3"
   windows:
     generate: true
-    image_path: "ic_launcher.png"
+    image_path: ^1.9.1
     icon_size: 48 # min:48, max:256, default: 48
   macos:
     generate: true
-    image_path: "ic_launcher.png"
+    image_path: ^1.9.1
   linux:
     generate: true
-    image_path: "ic_launcher.png"
+    image_path: ^1.9.1
