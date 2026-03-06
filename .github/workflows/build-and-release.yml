@@ -15,7 +15,7 @@ permissions:
   pull-requests: read
 
 env:
-  FLUTTER_VERSION: '3.24.5'
+  FLUTTER_VERSION: '3.35.1'
 
 jobs:
   build-windows:
