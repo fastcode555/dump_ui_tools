@@ -1,12 +1,10 @@
-name: Build and Release Android UI Analyzer Tool
+name: Build and Release UI Analyzer
 
 on:
   push:
-    branches: [master, main]
-    tags:
-      - 'v*'
+    branches: ['**']  # 所有分支的push都会触发
   pull_request:
-    branches: [master, main]
+    branches: ['**']
   workflow_dispatch:
 
 permissions:
@@ -15,7 +13,7 @@ permissions:
   pull-requests: read
 
 env:
-  FLUTTER_VERSION: '3.35.1'
+  FLUTTER_VERSION: '3.5.0'
 
 jobs:
   build-windows:
@@ -53,15 +51,16 @@ jobs:
           New-Item -ItemType Directory -Force -Path "release"
           
           # Create ZIP package
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "release\AndroidUIAnalyzer-Windows-v$version-$date-$commit.zip"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "release\UIAnalyzer-Windows-v$version-$date-$commit.zip"
           
-          Write-Host "Package created: AndroidUIAnalyzer-Windows-v$version-$date-$commit.zip"
+          Write-Host "Package created: UIAnalyzer-Windows-v$version-$date-$commit.zip"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: release/*.zip
+          retention-days: 30
 
   build-macos:
     runs-on: macos-latest
@@ -100,11 +99,11 @@ jobs:
           
           # 设置变量
           APP_NAME="dump_ui_tools.app"
-          DMG_NAME="AndroidUIAnalyzer-macOS-v${VERSION}-${DATE}-${COMMIT_SHORT}.dmg"
-          VOLUME_NAME="Android UI Analyzer"
+          DMG_NAME="UIAnalyzer-macOS-v${VERSION}-${DATE}-${COMMIT_SHORT}.dmg"
+          VOLUME_NAME="UI Analyzer"
           DMG_TEMP="dmg_temp"
           
-          echo "Creating DMG for Android UI Analyzer Tool..."
+          echo "Creating DMG for UI Analyzer..."
           
           # 创建临时目录
           mkdir -p "${DMG_TEMP}"
@@ -119,28 +118,22 @@ jobs:
           
           # 创建README文件
           cat > "${DMG_TEMP}/Installation-Guide.txt" << 'EOF'
-          Android UI Analyzer Tool - Installation Guide
+          UI Analyzer Installation Guide
           ====================================
           
           1. Drag "dump_ui_tools.app" to the "Applications" folder
-          2. Launch Android UI Analyzer from Applications or Spotlight
-          3. Connect your Android device with USB debugging enabled
-          4. Start analyzing Android UI hierarchies!
-          
-          Requirements:
-          - macOS 10.14 or later
-          - Android device with USB debugging enabled
-          - ADB (Android Debug Bridge) installed
+          2. Launch UI Analyzer from Applications or Spotlight
+          3. Start analyzing Android UI hierarchies!
           
           Features:
-          - Interactive UI hierarchy tree view
-          - Advanced search and filtering
+          - Interactive UI tree view
+          - Advanced search & filtering
           - Property inspection
           - Visual screen preview
-          - XML viewing with syntax highlighting
+          - XML syntax highlighting
           - History management
           
-          For issues or questions, visit our GitHub repository.
+          For issues or feedback, please visit our GitHub repository.
           EOF
           
           # 设置文件权限
@@ -171,25 +164,13 @@ jobs:
           # 显示DMG信息
           echo "📦 DMG created successfully: ${DMG_NAME}"
           ls -lh "release/${DMG_NAME}"
-          
-          # 测试挂载DMG
-          echo "Testing DMG mount..."
-          MOUNT_POINT=$(hdiutil attach "release/${DMG_NAME}" | grep "/Volumes" | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/')
-          if [ -n "$MOUNT_POINT" ]; then
-            echo "✅ DMG mounted successfully at: $MOUNT_POINT"
-            ls -la "$MOUNT_POINT"
-            hdiutil detach "$MOUNT_POINT"
-            echo "✅ DMG unmounted successfully"
-          else
-            echo "❌ Failed to mount DMG"
-            exit 1
-          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: release/*.dmg
+          retention-days: 30
 
   build-linux:
     runs-on: ubuntu-latest
@@ -200,7 +181,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -233,21 +214,22 @@ jobs:
           
           # Create tar.gz package
           cd build/linux/x64/release/bundle
-          tar -czf "../../../../../release/AndroidUIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz" .
+          tar -czf "../../../../../release/UIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz" .
           cd ../../../../../
           
-          echo "Package created: AndroidUIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz"
+          echo "Package created: UIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: release/*.tar.gz
+          retention-days: 30
 
   create-release:
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Get Date and Version
         id: version
@@ -256,15 +238,10 @@ jobs:
           COMMIT="${{ github.sha }}"
           echo "commit=${COMMIT:0:7}" >> $GITHUB_OUTPUT
           
-          # 从 tag 提取版本号，如果不是 tag 则使用默认版本
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
-            echo "tag=${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "version=1.0.0" >> $GITHUB_OUTPUT
-            echo "tag=v1.0.0-${{ steps.version.outputs.date }}-${COMMIT:0:7}" >> $GITHUB_OUTPUT
-          fi
+          # 从 tag 提取版本号
+          VERSION="${{ github.ref_name }}"
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -275,77 +252,65 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Android UI Analyzer Tool v${{ steps.version.outputs.version }} - ${{ steps.version.outputs.date }}
+          name: UI Analyzer v${{ steps.version.outputs.version }} - ${{ steps.version.outputs.date }}
           body: |
-            ## Android UI Analyzer Tool Release
+            ## UI Analyzer - Android UI Hierarchy Analysis Tool
             
             **Build Date:** ${{ steps.version.outputs.date }}
             **Version:** ${{ steps.version.outputs.version }}
             **Commit:** ${{ steps.version.outputs.commit }}
             
             ### 📊 Features
-            - 🔍 **UI Hierarchy Visualization**: Interactive tree view of Android UI structures
-            - 🔎 **Advanced Search & Filtering**: Find elements by text, resource ID, class name, or properties
-            - 📊 **Property Inspection**: Detailed view of UI element attributes and bounds
-            - 🖼️ **Visual Preview**: Scaled device screen representation with element highlighting
-            - 📝 **XML Viewing**: Syntax-highlighted XML display with export capabilities
-            - 📚 **History Management**: Access and manage previously captured UI dumps
-            
-            ### 🎯 Use Cases
-            - **UI Development**: Debug complex layout hierarchies and identify rendering issues
-            - **Automation Testing**: Generate precise element selectors for UI automation scripts
-            - **Quality Assurance**: Validate UI consistency across different devices
-            - **Performance Analysis**: Identify UI rendering bottlenecks
+            - 🌳 Interactive UI tree view with expand/collapse
+            - 🔍 Advanced search & filtering capabilities
+            - 📋 Detailed property inspection
+            - 👁️ Visual screen preview with element highlighting
+            - 📄 XML syntax highlighting and viewing
+            - 📚 History management for multiple dumps
+            - ⌨️ Keyboard shortcuts for efficiency
+            - 🎨 Modern Material Design 3 interface
             
             ### 📥 Downloads
             - **Windows**: Download ZIP file, extract and run `dump_ui_tools.exe`
-            - **macOS**: Download DMG file, open and drag app to Applications folder
+            - **macOS**: Download DMG file, open and drag to Applications folder
             - **Linux**: Download tar.gz file, extract and run `dump_ui_tools`
             
-            ### 📋 Installation Instructions
+            ### 📖 Installation Instructions
             
             #### Windows
-            1. Download `AndroidUIAnalyzer-Windows-*.zip` file
+            1. Download `UIAnalyzer-Windows-*.zip`
             2. Extract to your desired location
-            3. Run `dump_ui_tools.exe` to launch the application
-            4. Connect your Android device with USB debugging enabled
+            3. Run `dump_ui_tools.exe`
             
             #### macOS
-            1. Download `AndroidUIAnalyzer-macOS-*.dmg` file
+            1. Download `UIAnalyzer-macOS-*.dmg`
             2. Double-click to mount the disk image
             3. Drag "dump_ui_tools.app" to Applications folder
             4. Launch from Applications or Spotlight
-            5. Connect your Android device with USB debugging enabled
             
             #### Linux
-            1. Download `AndroidUIAnalyzer-Linux-*.tar.gz` file
-            2. Extract: `tar -xzf AndroidUIAnalyzer-Linux-*.tar.gz`
+            1. Download `UIAnalyzer-Linux-*.tar.gz`
+            2. Extract: `tar -xzf UIAnalyzer-Linux-*.tar.gz`
             3. Run: `./dump_ui_tools`
-            4. Connect your Android device with USB debugging enabled
             
-            ### ⚙️ Requirements
-            - **macOS**: 10.14 or later
-            - **Windows**: Windows 10 or later
-            - **Linux**: Ubuntu 20.04 or later (or equivalent)
-            - **Android Device**: USB debugging enabled
-            - **ADB**: Android Debug Bridge installed and configured
-            
-            ### 📚 Documentation
-            - [User Guide](docs/USER_GUIDE.md): Complete user documentation
-            - [Developer Guide](docs/DEVELOPER_GUIDE.md): Technical implementation details
-            - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md): Build and distribution instructions
+            ### 🚀 Quick Start
+            1. Launch UI Analyzer
+            2. Click "Load XML" or drag & drop your UI dump XML file
+            3. Explore the UI hierarchy in the tree view
+            4. Click elements to view properties and preview
+            5. Use search to find specific elements
             
             ### 🐛 Issue Report
-            If you encounter any issues, please report them on [GitHub Issues](https://github.com/your-repo/issues).
+            Found a bug or have a feature request? Please open an issue on GitHub.
             
-            ### 🙏 Acknowledgments
-            Made with ❤️ for Android developers and testers
+            ### � Documentation
+            For detailed documentation, visit our [GitHub repository](https://github.com/yourusername/dump_ui_tools).
 
           files: |
             artifacts/windows-build/*.zip
             artifacts/macos-build/*.dmg
             artifacts/linux-build/*.tar.gz
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
