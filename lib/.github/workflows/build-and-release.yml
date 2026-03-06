@@ -1,10 +1,12 @@
-name: Build and Release UI Analyzer
+name: Build and Release
 
 on:
   push:
-    branches: ['**']  # 所有分支的push都会触发
+    branches: [master, main]
+    tags:
+      - 'v*'
   pull_request:
-    branches: ['**']
+    branches: [master, main]
   workflow_dispatch:
 
 permissions:
@@ -60,7 +62,6 @@ jobs:
         with:
           name: windows-build
           path: release/*.zip
-          retention-days: 30
 
   build-macos:
     runs-on: macos-latest
@@ -164,72 +165,30 @@ jobs:
           # 显示DMG信息
           echo "📦 DMG created successfully: ${DMG_NAME}"
           ls -lh "release/${DMG_NAME}"
+          
+          # 测试挂载DMG
+          echo "Testing DMG mount..."
+          MOUNT_POINT=$(hdiutil attach "release/${DMG_NAME}" | grep "/Volumes" | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/')
+          if [ -n "$MOUNT_POINT" ]; then
+            echo "✅ DMG mounted successfully at: $MOUNT_POINT"
+            ls -la "$MOUNT_POINT"
+            hdiutil detach "$MOUNT_POINT"
+            echo "✅ DMG unmounted successfully"
+          else
+            echo "❌ Failed to mount DMG"
+            exit 1
+          fi
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: release/*.dmg
-          retention-days: 30
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Enable Linux Desktop
-        run: flutter config --enable-linux-desktop
-
-      - name: Get Dependencies
-        run: flutter pub get
-
-      - name: Analyze Code
-        run: flutter analyze
-        continue-on-error: true
-
-      - name: Build Linux
-        run: flutter build linux --release
-
-      - name: Create Package
-        run: |
-          DATE=$(date +%Y-%m-%d)
-          COMMIT="${{ github.sha }}"
-          COMMIT_SHORT="${COMMIT:0:7}"
-          VERSION="1.0.0"
-          
-          mkdir -p release
-          
-          # Create tar.gz package
-          cd build/linux/x64/release/bundle
-          tar -czf "../../../../../release/UIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz" .
-          cd ../../../../../
-          
-          echo "Package created: UIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz"
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: release/*.tar.gz
-          retention-days: 30
 
   create-release:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Get Date and Version
         id: version
@@ -238,10 +197,15 @@ jobs:
           COMMIT="${{ github.sha }}"
           echo "commit=${COMMIT:0:7}" >> $GITHUB_OUTPUT
           
-          # 从 tag 提取版本号
-          VERSION="${{ github.ref_name }}"
-          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
-          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          # 从 tag 提取版本号，如果不是 tag 则使用默认版本
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+            echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+            echo "tag=v1.0.0-${{ steps.version.outputs.date }}-${COMMIT:0:7}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Download Artifacts
         uses: actions/download-artifact@v4
@@ -270,47 +234,37 @@ jobs:
             - ⌨️ Keyboard shortcuts for efficiency
             - 🎨 Modern Material Design 3 interface
             
-            ### 📥 Downloads
+            ### Downloads
             - **Windows**: Download ZIP file, extract and run `dump_ui_tools.exe`
             - **macOS**: Download DMG file, open and drag to Applications folder
-            - **Linux**: Download tar.gz file, extract and run `dump_ui_tools`
             
-            ### 📖 Installation Instructions
+            ### Installation Instructions
             
             #### Windows
-            1. Download `UIAnalyzer-Windows-*.zip`
+            1. Download `UIAnalyzer-Windows-*.zip` file
             2. Extract to your desired location
-            3. Run `dump_ui_tools.exe`
+            3. Run `dump_ui_tools.exe` to launch the application
             
             #### macOS
-            1. Download `UIAnalyzer-macOS-*.dmg`
+            1. Download `UIAnalyzer-macOS-*.dmg` file
             2. Double-click to mount the disk image
             3. Drag "dump_ui_tools.app" to Applications folder
             4. Launch from Applications or Spotlight
             
-            #### Linux
-            1. Download `UIAnalyzer-Linux-*.tar.gz`
-            2. Extract: `tar -xzf UIAnalyzer-Linux-*.tar.gz`
-            3. Run: `./dump_ui_tools`
-            
-            ### 🚀 Quick Start
+            ### Quick Start
             1. Launch UI Analyzer
             2. Click "Load XML" or drag & drop your UI dump XML file
             3. Explore the UI hierarchy in the tree view
             4. Click elements to view properties and preview
             5. Use search to find specific elements
             
-            ### 🐛 Issue Report
-            Found a bug or have a feature request? Please open an issue on GitHub.
-            
-            ### � Documentation
-            For detailed documentation, visit our [GitHub repository](https://github.com/yourusername/dump_ui_tools).
+            ### Issue Report
+            If you encounter any issues, please report them on GitHub Issues.
 
           files: |
             artifacts/windows-build/*.zip
             artifacts/macos-build/*.dmg
-            artifacts/linux-build/*.tar.gz
           draft: false
-          prerelease: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
