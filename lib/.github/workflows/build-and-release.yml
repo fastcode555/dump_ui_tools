@@ -1,0 +1,351 @@
+name: Build and Release Android UI Analyzer Tool
+
+on:
+  push:
+    branches: [master, main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+env:
+  FLUTTER_VERSION: '3.35.1'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Analyze Code
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Create Package
+        run: |
+          $date = Get-Date -Format "yyyy-MM-dd"
+          $commit = "${{ github.sha }}".Substring(0,7)
+          $version = "1.0.0"
+          
+          New-Item -ItemType Directory -Force -Path "release"
+          
+          # Create ZIP package
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "release\AndroidUIAnalyzer-Windows-v$version-$date-$commit.zip"
+          
+          Write-Host "Package created: AndroidUIAnalyzer-Windows-v$version-$date-$commit.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: release/*.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Analyze Code
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Create DMG
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          VERSION="1.0.0"
+          
+          mkdir -p release
+          
+          # 设置变量
+          APP_NAME="dump_ui_tools.app"
+          DMG_NAME="AndroidUIAnalyzer-macOS-v${VERSION}-${DATE}-${COMMIT_SHORT}.dmg"
+          VOLUME_NAME="Android UI Analyzer"
+          DMG_TEMP="dmg_temp"
+          
+          echo "Creating DMG for Android UI Analyzer Tool..."
+          
+          # 创建临时目录
+          mkdir -p "${DMG_TEMP}"
+          
+          # 复制应用到临时目录
+          echo "Copying app bundle..."
+          cp -R "build/macos/Build/Products/Release/${APP_NAME}" "${DMG_TEMP}/"
+          
+          # 创建Applications符号链接
+          echo "Creating Applications symlink..."
+          ln -s /Applications "${DMG_TEMP}/Applications"
+          
+          # 创建README文件
+          cat > "${DMG_TEMP}/Installation-Guide.txt" << 'EOF'
+          Android UI Analyzer Tool - Installation Guide
+          ====================================
+          
+          1. Drag "dump_ui_tools.app" to the "Applications" folder
+          2. Launch Android UI Analyzer from Applications or Spotlight
+          3. Connect your Android device with USB debugging enabled
+          4. Start analyzing Android UI hierarchies!
+          
+          Requirements:
+          - macOS 10.14 or later
+          - Android device with USB debugging enabled
+          - ADB (Android Debug Bridge) installed
+          
+          Features:
+          - Interactive UI hierarchy tree view
+          - Advanced search and filtering
+          - Property inspection
+          - Visual screen preview
+          - XML viewing with syntax highlighting
+          - History management
+          
+          For issues or questions, visit our GitHub repository.
+          EOF
+          
+          # 设置文件权限
+          chmod -R 755 "${DMG_TEMP}/${APP_NAME}"
+          chmod 644 "${DMG_TEMP}/Installation-Guide.txt"
+          
+          # 创建DMG
+          echo "Creating DMG..."
+          hdiutil create -srcfolder "${DMG_TEMP}" \
+                         -volname "${VOLUME_NAME}" \
+                         -fs HFS+ \
+                         -format UDZO \
+                         -imagekey zlib-level=9 \
+                         "release/${DMG_NAME}"
+          
+          # 清理临时文件
+          rm -rf "${DMG_TEMP}"
+          
+          # 验证DMG
+          echo "Verifying DMG..."
+          if hdiutil verify "release/${DMG_NAME}"; then
+            echo "✅ DMG verification successful"
+          else
+            echo "❌ DMG verification failed"
+            exit 1
+          fi
+          
+          # 显示DMG信息
+          echo "📦 DMG created successfully: ${DMG_NAME}"
+          ls -lh "release/${DMG_NAME}"
+          
+          # 测试挂载DMG
+          echo "Testing DMG mount..."
+          MOUNT_POINT=$(hdiutil attach "release/${DMG_NAME}" | grep "/Volumes" | tail -1 | sed 's/.*\(\/Volumes\/.*\)/\1/')
+          if [ -n "$MOUNT_POINT" ]; then
+            echo "✅ DMG mounted successfully at: $MOUNT_POINT"
+            ls -la "$MOUNT_POINT"
+            hdiutil detach "$MOUNT_POINT"
+            echo "✅ DMG unmounted successfully"
+          else
+            echo "❌ Failed to mount DMG"
+            exit 1
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: release/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Analyze Code
+        run: flutter analyze
+        continue-on-error: true
+
+      - name: Build Linux
+        run: flutter build linux --release
+
+      - name: Create Package
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          VERSION="1.0.0"
+          
+          mkdir -p release
+          
+          # Create tar.gz package
+          cd build/linux/x64/release/bundle
+          tar -czf "../../../../../release/AndroidUIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz" .
+          cd ../../../../../
+          
+          echo "Package created: AndroidUIAnalyzer-Linux-v${VERSION}-${DATE}-${COMMIT_SHORT}.tar.gz"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: release/*.tar.gz
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Get Date and Version
+        id: version
+        run: |
+          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+          COMMIT="${{ github.sha }}"
+          echo "commit=${COMMIT:0:7}" >> $GITHUB_OUTPUT
+          
+          # 从 tag 提取版本号，如果不是 tag 则使用默认版本
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+            echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "version=1.0.0" >> $GITHUB_OUTPUT
+            echo "tag=v1.0.0-${{ steps.version.outputs.date }}-${COMMIT:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Android UI Analyzer Tool v${{ steps.version.outputs.version }} - ${{ steps.version.outputs.date }}
+          body: |
+            ## Android UI Analyzer Tool Release
+            
+            **Build Date:** ${{ steps.version.outputs.date }}
+            **Version:** ${{ steps.version.outputs.version }}
+            **Commit:** ${{ steps.version.outputs.commit }}
+            
+            ### 📊 Features
+            - 🔍 **UI Hierarchy Visualization**: Interactive tree view of Android UI structures
+            - 🔎 **Advanced Search & Filtering**: Find elements by text, resource ID, class name, or properties
+            - 📊 **Property Inspection**: Detailed view of UI element attributes and bounds
+            - 🖼️ **Visual Preview**: Scaled device screen representation with element highlighting
+            - 📝 **XML Viewing**: Syntax-highlighted XML display with export capabilities
+            - 📚 **History Management**: Access and manage previously captured UI dumps
+            
+            ### 🎯 Use Cases
+            - **UI Development**: Debug complex layout hierarchies and identify rendering issues
+            - **Automation Testing**: Generate precise element selectors for UI automation scripts
+            - **Quality Assurance**: Validate UI consistency across different devices
+            - **Performance Analysis**: Identify UI rendering bottlenecks
+            
+            ### 📥 Downloads
+            - **Windows**: Download ZIP file, extract and run `dump_ui_tools.exe`
+            - **macOS**: Download DMG file, open and drag app to Applications folder
+            - **Linux**: Download tar.gz file, extract and run `dump_ui_tools`
+            
+            ### 📋 Installation Instructions
+            
+            #### Windows
+            1. Download `AndroidUIAnalyzer-Windows-*.zip` file
+            2. Extract to your desired location
+            3. Run `dump_ui_tools.exe` to launch the application
+            4. Connect your Android device with USB debugging enabled
+            
+            #### macOS
+            1. Download `AndroidUIAnalyzer-macOS-*.dmg` file
+            2. Double-click to mount the disk image
+            3. Drag "dump_ui_tools.app" to Applications folder
+            4. Launch from Applications or Spotlight
+            5. Connect your Android device with USB debugging enabled
+            
+            #### Linux
+            1. Download `AndroidUIAnalyzer-Linux-*.tar.gz` file
+            2. Extract: `tar -xzf AndroidUIAnalyzer-Linux-*.tar.gz`
+            3. Run: `./dump_ui_tools`
+            4. Connect your Android device with USB debugging enabled
+            
+            ### ⚙️ Requirements
+            - **macOS**: 10.14 or later
+            - **Windows**: Windows 10 or later
+            - **Linux**: Ubuntu 20.04 or later (or equivalent)
+            - **Android Device**: USB debugging enabled
+            - **ADB**: Android Debug Bridge installed and configured
+            
+            ### 📚 Documentation
+            - [User Guide](docs/USER_GUIDE.md): Complete user documentation
+            - [Developer Guide](docs/DEVELOPER_GUIDE.md): Technical implementation details
+            - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md): Build and distribution instructions
+            
+            ### 🐛 Issue Report
+            If you encounter any issues, please report them on [GitHub Issues](https://github.com/your-repo/issues).
+            
+            ### 🙏 Acknowledgments
+            Made with ❤️ for Android developers and testers
+
+          files: |
+            artifacts/windows-build/*.zip
+            artifacts/macos-build/*.dmg
+            artifacts/linux-build/*.tar.gz
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
